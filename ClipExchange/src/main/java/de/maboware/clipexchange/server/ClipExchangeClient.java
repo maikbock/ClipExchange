@@ -40,8 +40,11 @@ public class ClipExchangeClient extends Application {
 	private Stage stage;
 	
 	public static void main(String[] args) {
-		if (args == null || args.length < 1) {
-			System.err.println("Usage: java -jar ClipEchangeClient.jar <serverURL> <portNumber>");
+		if (args == null || args.length < 1 || args.length > 3) {
+			System.err.println("Usage as Client: java -jar ClipEchange.jar -url=<serverURL> -port=<portNumber>");
+			System.err.println("Usage as Client: java -jar ClipEchange.jar -url=<serverURL> -- using default port 1512");
+			System.err.println("Usage as Server (and Client): java -jar ClipEchange.jar -port=<portNumber>");
+			System.err.println("Usage as Server (and Client): java -jar ClipEchange.jar <portNumber>");
 			System.exit(1);
 		}
 		String serverURL = args[0];

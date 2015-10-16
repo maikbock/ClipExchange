@@ -22,13 +22,17 @@ public class ClipEchchangeServer {
 	String clipBoard = "empty";
 	Map<String, Object> payload = new HashMap<>();
 
-	public static void main(String[] args) {
+	/**
+	 * No more static - Server instance is start from client.
+	 * @param args
+	 */
+	public void main(String[] args) {
 		int p = 1512;
 		if (args != null && args.length > 0) {
 			try {
 				p = Integer.valueOf(args[0]);
 			} catch (NumberFormatException ex) {
-				System.err.println("Usage: java -jar ClipEchangeServer.jar [portNumber] \nDefault Port is 1512");
+				System.err.println("Usage: java -jar ClipEchange.jar [portNumber] \nDefault Port is 1512");
 			}
 		}
 
@@ -36,13 +40,14 @@ public class ClipEchchangeServer {
 	}
 
 	public void startServer(int port) {
-		final ExecutorService clientProcessingPool = Executors.newFixedThreadPool(10);
+		final ExecutorService clientProcessingPool = Executors.newFixedThreadPool(25);
 
 		Runnable serverTask = new Runnable() {
+			ServerSocket serverSocket ;
 			@Override
 			public void run() {
 				try {
-					ServerSocket serverSocket = new ServerSocket(port);
+					serverSocket = new ServerSocket(port);
 					System.out.println("Waiting for clients to connect...");
 					while (true) {
 						Socket clientSocket = serverSocket.accept();
@@ -51,6 +56,15 @@ public class ClipEchchangeServer {
 				} catch (IOException e) {
 					System.err.println("Unable to process client request");
 					e.printStackTrace();
+				}
+			}
+			
+			@Override
+			protected void finalize() throws Throwable {
+				try {
+					serverSocket.close();
+				} catch (IOException ex) {
+					System.err.println(ex);
 				}
 			}
 		};
