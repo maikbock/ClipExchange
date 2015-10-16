@@ -15,6 +15,7 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -25,6 +26,7 @@ import org.apache.commons.cli.ParseException;
 import de.maboware.clipexchange.model.Request;
 import de.maboware.clipexchange.model.Response;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
@@ -42,6 +44,8 @@ public class ClipExchangeClient extends Application {
 	static Socket s = null;
 	private static ObjectOutputStream out;
 	private static ObjectInputStream in;
+
+	private static ClipExchangeServer server = null;
 
 	private Stage stage;
 
@@ -63,16 +67,18 @@ public class ClipExchangeClient extends Application {
 		String serverURL = commandline.getOptionValue("url");
 		int port = commandline.hasOption("port") ? Integer.valueOf(commandline.getOptionValue("port")) : 1512;
 		if (serverURL == null) {
+			serverURL = "localhost";
 			startServer(port);
 		}
-		ClipExchangeClient client = new ClipExchangeClient();
-		client.connectToServer(serverURL, port);
+		new ClipExchangeClient().connectToServer(serverURL, port);
 		Application.launch(args);
+
 	}
 
 	private static void startServer(int port) {
 		//
-		new ClipExchangeServer().startServer(port);
+		server = new ClipExchangeServer();
+		server.startServer(port);
 
 	}
 
@@ -84,20 +90,22 @@ public class ClipExchangeClient extends Application {
 			out = new ObjectOutputStream(s.getOutputStream());
 			in = new ObjectInputStream(s.getInputStream());
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 	}
 
 	@Override
 	public void start(Stage stage) throws Exception {
+		stage.setOnCloseRequest(event -> closeServer());
 		//
+
+		System.out.println(getParameters().getNamed().toString());
 		this.stage = stage;
 		VBox vbox = new VBox();
 		HBox hboxClipboard = new HBox();
 		hboxClipboard.setPadding(new Insets(10, 10, 10, 10));
 		hboxClipboard.setSpacing(10);
-		hboxClipboard.setStyle("-fx-background-color: #336699;");
+		String background = (server == null ? "-fx-background-color: #336699;" : "-fx-background-color: #996666;");
+		hboxClipboard.setStyle(background);
 		Button buttonPush = new Button("push clipboard");
 		buttonPush.setOnAction(e -> System.out.println(pushClipboard()));
 		Button buttonCopy = new Button("copy clipoard");
@@ -109,7 +117,7 @@ public class ClipExchangeClient extends Application {
 		HBox hboxFile = new HBox();
 		hboxFile.setPadding(new Insets(10, 10, 10, 10));
 		hboxFile.setSpacing(10);
-		hboxFile.setStyle("-fx-background-color: #336699;");
+		hboxFile.setStyle(background);
 		Button buttonPushFile = new Button("push file");
 		buttonPushFile.setOnAction(e -> System.out.println(pushFile()));
 		Button buttonCopyFile = new Button("get file");
@@ -121,15 +129,60 @@ public class ClipExchangeClient extends Application {
 		hboxFile.getChildren().add(buttonCopyFile);
 		hboxFile.getChildren().add(buttonRemoveFile);
 
+		Button buttonClients = new Button("get clients");
+		buttonClients.setOnAction(e -> showClientList());
+
 		vbox.getChildren().add(hboxClipboard);
 		vbox.getChildren().add(hboxFile);
+		vbox.getChildren().add(buttonClients);
 		Scene scene = new Scene(vbox);
-		stage.setTitle("server: " + s.getInetAddress().getHostAddress());
+		stage.setTitle("client: " + getClientName() + "server: " + s.getInetAddress().getHostAddress());
 		stage.setScene(scene);
 		stage.setWidth(320);
 		stage.setHeight(130);
 		stage.show();
 
+	}
+
+	private void showClientList() {
+		Request req = new Request(Request.GET_CLIENT_LIST);
+		Response res = null;
+		try {
+			out.writeObject(req);
+			res = (Response) in.readObject();
+			Alert alert = new Alert(AlertType.INFORMATION);
+			alert.setTitle("Information Dialog");
+			alert.setHeaderText("Meldung vom Server");
+			@SuppressWarnings("unchecked")
+			List<String> clients = (List<String>) res.payload;
+			
+			alert.setContentText(clients.stream().collect(Collectors.joining("\n")));
+			alert.show();
+
+			
+		} catch (IOException | ClassNotFoundException e) {
+		}
+		
+	}
+
+	private void closeServer() {
+		System.out.println("closing");
+		if (server != null && server.clients.size() == 1) {
+			server.closeServer();
+		}
+		System.exit(0);
+	}
+
+	private String getClientName() {
+		Request req = new Request(Request.GET_CLIENT_NAME);
+		Response res = null;
+		try {
+			out.writeObject(req);
+			res = (Response) in.readObject();
+			return (String) res.payload;
+		} catch (IOException | ClassNotFoundException e) {
+		}
+		return "unknown";
 	}
 
 	private Object copyFile() {
@@ -155,43 +208,43 @@ public class ClipExchangeClient extends Application {
 
 			// Traditional way to get the response value.
 			Optional<String> result = dialog.showAndWait();
+			if (result.isPresent()) {
+				req = new Request(Request.COPY_FILE_FROM_SERVER, result.get());
+				System.out.println("Requesting copy of " + req.payload);
+				out.writeObject(req);
+				res = (Response) in.readObject();
 
-			req = new Request(Request.COPY_FILE_FROM_SERVER, result.get());
-			System.out.println("Requesting copy of " + req.payload);
-			out.writeObject(req);
-			res = (Response) in.readObject();
+				File f = (File) res.payload;
 
-			File f = (File) res.payload;
+				try {
+					Desktop.getDesktop().open(f);
+				} catch (Exception ex) {
+					File newFile = new File(System.getProperty("user.home") + "/" + f.getName());
+					FileOutputStream fout = new FileOutputStream(newFile);
+					FileInputStream fin = new FileInputStream(f);
+					int read = fin.read();
+					while (read > -1) {
+						fout.write(read);
+						read = fin.read();
+					}
+					fin.close();
+					fout.close();
+					stage.getScene().setCursor(Cursor.DEFAULT);
 
-			try {
-				Desktop.getDesktop().open(f);
-			} catch (Exception ex) {
-				File newFile = new File(System.getProperty("user.home") + "/" + f.getName());
-				FileOutputStream fout = new FileOutputStream(newFile);
-				FileInputStream fin = new FileInputStream(f);
-				int read = fin.read();
-				while (read > -1) {
-					fout.write(read);
-					read = fin.read();
+					Alert alert = new Alert(AlertType.INFORMATION);
+					alert.setTitle("Information Dialog");
+					alert.setHeaderText("Meldung vom Client");
+					alert.setContentText(
+							"Keine Standardanwendung für " + f.getName() + " gefunden.\n Es wurde eine lokale Kopie in "
+									+ System.getProperty("user.home") + " erstellt.");
+					alert.show();
+
 				}
-				fin.close();
-				fout.close();
-				stage.getScene().setCursor(Cursor.DEFAULT);
-
-				Alert alert = new Alert(AlertType.INFORMATION);
-				alert.setTitle("Information Dialog");
-				alert.setHeaderText("Meldung vom Client");
-				alert.setContentText(
-						"Keine Standardanwendung für " + f.getName() + " gefunden.\n Es wurde eine lokale Kopie in "
-								+ System.getProperty("user.home") + " erstellt.");
-				alert.show();
-
 			}
 
 		} catch (IOException | ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
+
 		stage.getScene().setCursor(Cursor.DEFAULT);
 		return res;
 	}
@@ -238,8 +291,6 @@ public class ClipExchangeClient extends Application {
 			res = (Response) in.readObject();
 
 		} catch (IOException | ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
 
@@ -259,8 +310,6 @@ public class ClipExchangeClient extends Application {
 				out.writeObject(req);
 				res = (Response) in.readObject();
 			} catch (IOException | ClassNotFoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			}
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
@@ -281,8 +330,6 @@ public class ClipExchangeClient extends Application {
 			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
 			System.out.println("Successfully copied '" + res.payload + "' to clipboard");
 		} catch (IOException | ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
 
@@ -299,8 +346,6 @@ public class ClipExchangeClient extends Application {
 			res = (Response) in.readObject();
 			System.out.println("Response received: " + res.response);
 		} catch (IOException | ClassNotFoundException | HeadlessException | UnsupportedFlavorException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
 

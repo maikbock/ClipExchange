@@ -20,35 +20,32 @@ public class ClipExchangeServer {
 
 	String clipBoard = "empty";
 	Map<String, Object> payload = new HashMap<>();
+	static List<String> clients = new ArrayList<String>();
+	
+	ServerSocket serverSocket;
+	boolean run = true;
 
 	public void startServer(int port) {
 		final ExecutorService clientProcessingPool = Executors.newFixedThreadPool(25);
 
 		Runnable serverTask = new Runnable() {
-			ServerSocket serverSocket ;
+			
+
 			@Override
 			public void run() {
 				try {
 					serverSocket = new ServerSocket(port);
 					System.out.println("Waiting for clients to connect...");
-					while (true) {
+					while (run) {
 						Socket clientSocket = serverSocket.accept();
 						clientProcessingPool.submit(new ClientTask(clientSocket));
 					}
 				} catch (IOException e) {
 					System.err.println("Unable to process client request");
-					e.printStackTrace();
-				}
+					
+				} 
 			}
 			
-			@Override
-			protected void finalize() throws Throwable {
-				try {
-					serverSocket.close();
-				} catch (IOException ex) {
-					System.err.println(ex);
-				}
-			}
 		};
 		Thread serverThread = new Thread(serverTask);
 		serverThread.start();
@@ -68,25 +65,37 @@ public class ClipExchangeServer {
 		@Override
 		public void run() {
 			System.out.println("Got a client !");
-
+			String clientName = getClientName(clientSocket);
+			clients.add(clientName);
 			try {
 				in = new ObjectInputStream(clientSocket.getInputStream());
 				out = new ObjectOutputStream(clientSocket.getOutputStream());
 				while (true) {
 					Request request = (Request) in.readObject();
+					request.clientName = clientName;
 					out.writeObject(processRequest(request));
 				}
 
 			} catch (IOException | ClassNotFoundException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
 			}
 
 			try {
 				clientSocket.close();
 			} catch (IOException e) {
-				e.printStackTrace();
+			} finally {
+				clients.remove(clientName);
 			}
+		}
+
+		private String getClientName(Socket clientSocket) {
+			//
+			String name = clientSocket.getInetAddress().getHostName();
+			String suffix = "";
+			short i = 1;
+			while (clients.contains(name + (i > 1 ? "-" : "") + suffix)) {
+				suffix = String.valueOf(i++);
+			}
+			return name + (i > 1 ? "-" : "") +  suffix;
 		}
 	}
 
@@ -112,6 +121,14 @@ public class ClipExchangeServer {
 		}
 		case Request.COPY_FILE_TO_SERVER: {
 			res = copyFileToServer(request);
+			break;
+		}
+		case Request.GET_CLIENT_NAME: {
+			res = new Response(request.clientName);
+			break;
+		}
+		case Request.GET_CLIENT_LIST: {
+			res = new Response(clients);
 			break;
 		}
 		}
@@ -174,5 +191,14 @@ public class ClipExchangeServer {
 	private Response copyFromServer() {
 		//
 		return new Response(clipBoard);
+	}
+
+	public void closeServer() {
+		//
+		run = false;
+		try {
+			serverSocket.close();
+		} catch (Exception e) {
+		}
 	}
 }

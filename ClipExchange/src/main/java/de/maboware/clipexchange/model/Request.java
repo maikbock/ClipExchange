@@ -13,10 +13,14 @@ public class Request implements Serializable {
 	public static final short COPY_FILE_TO_SERVER = 3;
 	public static final short COPY_FILE_FROM_SERVER = 4;
 	public static final short REMOVE_FILE_FROM_SERVER = 5;
+	public static final short GET_CLIENT_NAME = 6;
+	public static final short GET_CLIENT_LIST = 7;
 	
 	public short request = -1;
 	
 	public Object payload = null;
+	
+	public String clientName = null;
 	
 	public Request(short request) {
 		this(request, null);
