@@ -42,9 +42,9 @@ public class ClipExchangeClient extends Application {
 	static Socket s = null;
 	private static ObjectOutputStream out;
 	private static ObjectInputStream in;
-	
+
 	private Stage stage;
-	
+
 	public static void main(String[] args) {
 		Options opts = new Options();
 		opts.addOption("url", true, "serverURL");
@@ -52,10 +52,11 @@ public class ClipExchangeClient extends Application {
 		CommandLineParser parser = new DefaultParser();
 		CommandLine commandline = null;
 		try {
-			commandline = parser.parse(opts,  args);
+			commandline = parser.parse(opts, args);
 		} catch (ParseException e) {
 			System.err.println("Usage as Client: java -jar ClipEchange.jar -url=<serverURL> -port=<portNumber>");
-			System.err.println("Usage as Client: java -jar ClipEchange.jar -url=<serverURL> -- using default port 1512");
+			System.err
+					.println("Usage as Client: java -jar ClipEchange.jar -url=<serverURL> -- using default port 1512");
 			System.err.println("Usage as Server (and Client): java -jar ClipEchange.jar -port=<portNumber>");
 			System.exit(1);
 		}
@@ -70,9 +71,9 @@ public class ClipExchangeClient extends Application {
 	}
 
 	private static void startServer(int port) {
-		// 
+		//
 		new ClipExchangeServer().startServer(port);
-		
+
 	}
 
 	private void connectToServer(String serverURL, int port) {
@@ -94,9 +95,9 @@ public class ClipExchangeClient extends Application {
 		this.stage = stage;
 		VBox vbox = new VBox();
 		HBox hboxClipboard = new HBox();
-	    hboxClipboard.setPadding(new Insets(10, 10, 10, 10));
-	    hboxClipboard.setSpacing(10);
-	    hboxClipboard.setStyle("-fx-background-color: #336699;");
+		hboxClipboard.setPadding(new Insets(10, 10, 10, 10));
+		hboxClipboard.setSpacing(10);
+		hboxClipboard.setStyle("-fx-background-color: #336699;");
 		Button buttonPush = new Button("push clipboard");
 		buttonPush.setOnAction(e -> System.out.println(pushClipboard()));
 		Button buttonCopy = new Button("copy clipoard");
@@ -104,11 +105,11 @@ public class ClipExchangeClient extends Application {
 
 		hboxClipboard.getChildren().add(buttonPush);
 		hboxClipboard.getChildren().add(buttonCopy);
-		
+
 		HBox hboxFile = new HBox();
-	    hboxFile.setPadding(new Insets(10, 10, 10, 10));
-	    hboxFile.setSpacing(10);
-	    hboxFile.setStyle("-fx-background-color: #336699;");
+		hboxFile.setPadding(new Insets(10, 10, 10, 10));
+		hboxFile.setSpacing(10);
+		hboxFile.setStyle("-fx-background-color: #336699;");
 		Button buttonPushFile = new Button("push file");
 		buttonPushFile.setOnAction(e -> System.out.println(pushFile()));
 		Button buttonCopyFile = new Button("get file");
@@ -119,7 +120,6 @@ public class ClipExchangeClient extends Application {
 		hboxFile.getChildren().add(buttonPushFile);
 		hboxFile.getChildren().add(buttonCopyFile);
 		hboxFile.getChildren().add(buttonRemoveFile);
-		
 
 		vbox.getChildren().add(hboxClipboard);
 		vbox.getChildren().add(hboxFile);
@@ -132,66 +132,62 @@ public class ClipExchangeClient extends Application {
 
 	}
 
-	private Object copyFile(){
+	private Object copyFile() {
 
 		stage.getScene().setCursor(Cursor.WAIT);
 		Request req = new Request(Request.COPY_FILE_FROM_SERVER);
 		Response res = null;
 		try {
 			out.writeObject(req);
-		res = (Response) in.readObject();
-		
-		@SuppressWarnings("unchecked")
-		List<String> choices = (List<String>) res.payload;
-		
-		if (choices == null || choices.size() == 0) {
-			Alert alert = new Alert(AlertType.INFORMATION);
-			alert.setTitle("Information Dialog");
-			alert.setHeaderText("Meldung vom Server");
-			alert.setContentText("Mein File-Speicher ist leer");
-			alert.show();
-			return null;
-		}
-		
-		ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
-		dialog.setTitle("Auswahl Dialog");
-		dialog.setHeaderText("Server-Files");
-		dialog.setContentText("Bitte wählen:");
+			res = (Response) in.readObject();
 
-		// Traditional way to get the response value.
-		Optional<String> result = dialog.showAndWait();
+			@SuppressWarnings("unchecked")
+			List<String> choices = (List<String>) res.payload;
 
-		req = new Request(Request.COPY_FILE_FROM_SERVER, result.get());
-		System.out.println("Requesting copy of " + req.payload);
-		out.writeObject(req);
-		res = (Response) in.readObject();
-		
-		File f = (File) res.payload;
-		
-		try {
-			Desktop.getDesktop().open(f);
-		} catch (Exception ex) {
-			File newFile = new File(System.getProperty("user.home") + "/" + f.getName()) ;
-			FileOutputStream fout = new FileOutputStream(newFile);
-			FileInputStream fin = new FileInputStream(f);
-			int read = fin.read();
-			while (read > -1) {
-				fout.write(read);
-				read = fin.read();
+			if (checkNoFile(choices)) {
+				return null;
 			}
-			fin.close();
-			fout.close();
-			stage.getScene().setCursor(Cursor.DEFAULT);
 
-			Alert alert = new Alert(AlertType.INFORMATION);
-			alert.setTitle("Information Dialog");
-			alert.setHeaderText("Meldung vom Client");
-			alert.setContentText("Keine Standardanwendung für " + f.getName() + " gefunden.\n Es wurde eine lokale Kopie in " + System.getProperty("user.home") + " erstellt.");
-			alert.show();
-			
-			
-		}
-		
+			ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
+			dialog.setTitle("Auswahl Dialog");
+			dialog.setHeaderText("Server-Files");
+			dialog.setContentText("Bitte wählen:");
+
+			// Traditional way to get the response value.
+			Optional<String> result = dialog.showAndWait();
+
+			req = new Request(Request.COPY_FILE_FROM_SERVER, result.get());
+			System.out.println("Requesting copy of " + req.payload);
+			out.writeObject(req);
+			res = (Response) in.readObject();
+
+			File f = (File) res.payload;
+
+			try {
+				Desktop.getDesktop().open(f);
+			} catch (Exception ex) {
+				File newFile = new File(System.getProperty("user.home") + "/" + f.getName());
+				FileOutputStream fout = new FileOutputStream(newFile);
+				FileInputStream fin = new FileInputStream(f);
+				int read = fin.read();
+				while (read > -1) {
+					fout.write(read);
+					read = fin.read();
+				}
+				fin.close();
+				fout.close();
+				stage.getScene().setCursor(Cursor.DEFAULT);
+
+				Alert alert = new Alert(AlertType.INFORMATION);
+				alert.setTitle("Information Dialog");
+				alert.setHeaderText("Meldung vom Client");
+				alert.setContentText(
+						"Keine Standardanwendung für " + f.getName() + " gefunden.\n Es wurde eine lokale Kopie in "
+								+ System.getProperty("user.home") + " erstellt.");
+				alert.show();
+
+			}
+
 		} catch (IOException | ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -199,66 +195,73 @@ public class ClipExchangeClient extends Application {
 		stage.getScene().setCursor(Cursor.DEFAULT);
 		return res;
 	}
-	
-	private Object removeFile(){
+
+	private boolean checkNoFile(List<String> choices) {
+		if (choices == null || choices.size() == 0) {
+			stage.getScene().setCursor(Cursor.DEFAULT);
+			Alert alert = new Alert(AlertType.INFORMATION);
+			alert.setTitle("Information Dialog");
+			alert.setHeaderText("Meldung vom Server");
+			alert.setContentText("Mein File-Speicher ist leer");
+			alert.show();
+			return true;
+		}
+		return false;
+	}
+
+	private Object removeFile() {
 
 		Request req = new Request(Request.REMOVE_FILE_FROM_SERVER);
 		Response res = null;
 		try {
 			out.writeObject(req);
-		res = (Response) in.readObject();
-		
-		@SuppressWarnings("unchecked")
-		List<String> choices = (List<String>) res.payload;
-		
-		if (choices == null || choices.size() == 0) {
-			Alert alert = new Alert(AlertType.INFORMATION);
-			alert.setTitle("Information Dialog");
-			alert.setHeaderText("Meldung vom Server");
-			alert.setContentText("Mein File-Speicher ist leer");
-			alert.show();
-			return null;
-		}
-		
-		ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
-		dialog.setTitle("Auswahl Dialog");
-		dialog.setHeaderText("Server-Files");
-		dialog.setContentText("Bitte wählen:");
+			res = (Response) in.readObject();
 
-		// Traditional way to get the response value.
-		Optional<String> result = dialog.showAndWait();
+			@SuppressWarnings("unchecked")
+			List<String> choices = (List<String>) res.payload;
 
-		req = new Request(Request.REMOVE_FILE_FROM_SERVER, result.get());
-		System.out.println("Requesting copy of " + req.payload);
-		out.writeObject(req);
-		res = (Response) in.readObject();
-		
-		
-		
+			if (checkNoFile(choices)) {
+				return null;
+			}
+
+			ChoiceDialog<String> dialog = new ChoiceDialog<>(choices.get(0), choices);
+			dialog.setTitle("Auswahl Dialog");
+			dialog.setHeaderText("Server-Files");
+			dialog.setContentText("Bitte wählen:");
+
+			// Traditional way to get the response value.
+			Optional<String> result = dialog.showAndWait();
+
+			req = new Request(Request.REMOVE_FILE_FROM_SERVER, result.get());
+			System.out.println("Requesting copy of " + req.payload);
+			out.writeObject(req);
+			res = (Response) in.readObject();
+
 		} catch (IOException | ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
-		
+
 		return res;
 	}
 
-
-	private Object pushFile()  {
+	private Object pushFile() {
 		stage.getScene().setCursor(Cursor.WAIT);
 
 		Response res = null;
 		FileChooser fileChooser = new FileChooser();
 		fileChooser.setTitle("Open Resource File");
 		File file = fileChooser.showOpenDialog(stage);
-		Request req = new Request(Request.COPY_FILE_TO_SERVER, file);
-		try {
-			out.writeObject(req);
-			res = (Response) in.readObject();
-		} catch (IOException | ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		if (file != null) {
+			Request req = new Request(Request.COPY_FILE_TO_SERVER, file);
+			try {
+				out.writeObject(req);
+				res = (Response) in.readObject();
+			} catch (IOException | ClassNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
 
@@ -266,7 +269,7 @@ public class ClipExchangeClient extends Application {
 	}
 
 	private Object copyClipboard() {
-		// 
+		//
 		Request request = new Request(Request.COPY_CLIPBOARD_FROM_SERVER);
 		Response res = null;
 		try {
@@ -274,7 +277,7 @@ public class ClipExchangeClient extends Application {
 			out.writeObject(request);
 			res = (Response) in.readObject();
 			System.out.println("Response received: " + res.response);
-			StringSelection selection = new StringSelection((String)res.payload);
+			StringSelection selection = new StringSelection((String) res.payload);
 			Toolkit.getDefaultToolkit().getSystemClipboard().setContents(selection, selection);
 			System.out.println("Successfully copied '" + res.payload + "' to clipboard");
 		} catch (IOException | ClassNotFoundException e) {
@@ -282,17 +285,16 @@ public class ClipExchangeClient extends Application {
 			e.printStackTrace();
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
-		
+
 		return res;
 	}
-
 
 	private Object pushClipboard() {
 		Request request = new Request(Request.COPY_CLIPBOARD_TO_SERVER);
 		Response res = null;
 		try {
 			System.out.println("Sending request...");
-			request.payload = Toolkit.getDefaultToolkit().getSystemClipboard().getData(DataFlavor.stringFlavor); 
+			request.payload = Toolkit.getDefaultToolkit().getSystemClipboard().getData(DataFlavor.stringFlavor);
 			out.writeObject(request);
 			res = (Response) in.readObject();
 			System.out.println("Response received: " + res.response);
@@ -301,7 +303,7 @@ public class ClipExchangeClient extends Application {
 			e.printStackTrace();
 		}
 		stage.getScene().setCursor(Cursor.DEFAULT);
-		
+
 		return res;
 	}
 
