@@ -16,6 +16,12 @@ import java.net.Socket;
 import java.util.List;
 import java.util.Optional;
 
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
+
 import de.maboware.clipexchange.model.Request;
 import de.maboware.clipexchange.model.Response;
 import javafx.application.Application;
@@ -40,18 +46,33 @@ public class ClipExchangeClient extends Application {
 	private Stage stage;
 	
 	public static void main(String[] args) {
-		if (args == null || args.length < 1 || args.length > 3) {
+		Options opts = new Options();
+		opts.addOption("url", true, "serverURL");
+		opts.addOption("port", true, "portNumber");
+		CommandLineParser parser = new DefaultParser();
+		CommandLine commandline = null;
+		try {
+			commandline = parser.parse(opts,  args);
+		} catch (ParseException e) {
 			System.err.println("Usage as Client: java -jar ClipEchange.jar -url=<serverURL> -port=<portNumber>");
 			System.err.println("Usage as Client: java -jar ClipEchange.jar -url=<serverURL> -- using default port 1512");
 			System.err.println("Usage as Server (and Client): java -jar ClipEchange.jar -port=<portNumber>");
-			System.err.println("Usage as Server (and Client): java -jar ClipEchange.jar <portNumber>");
 			System.exit(1);
 		}
-		String serverURL = args[0];
-		int port = Integer.valueOf(args[1]);
+		String serverURL = commandline.getOptionValue("url");
+		int port = commandline.hasOption("port") ? Integer.valueOf(commandline.getOptionValue("port")) : 1512;
+		if (serverURL == null) {
+			startServer(port);
+		}
 		ClipExchangeClient client = new ClipExchangeClient();
 		client.connectToServer(serverURL, port);
 		Application.launch(args);
+	}
+
+	private static void startServer(int port) {
+		// 
+		new ClipExchangeServer().startServer(port);
+		
 	}
 
 	private void connectToServer(String serverURL, int port) {
@@ -103,9 +124,9 @@ public class ClipExchangeClient extends Application {
 		vbox.getChildren().add(hboxClipboard);
 		vbox.getChildren().add(hboxFile);
 		Scene scene = new Scene(vbox);
-		stage.setTitle(s.getInetAddress().getHostAddress());
+		stage.setTitle("server: " + s.getInetAddress().getHostAddress());
 		stage.setScene(scene);
-		stage.setWidth(280);
+		stage.setWidth(320);
 		stage.setHeight(130);
 		stage.show();
 
@@ -218,6 +239,8 @@ public class ClipExchangeClient extends Application {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		stage.getScene().setCursor(Cursor.DEFAULT);
+		
 		return res;
 	}
 
@@ -258,6 +281,7 @@ public class ClipExchangeClient extends Application {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		stage.getScene().setCursor(Cursor.DEFAULT);
 		
 		return res;
 	}
@@ -276,6 +300,7 @@ public class ClipExchangeClient extends Application {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		stage.getScene().setCursor(Cursor.DEFAULT);
 		
 		return res;
 	}

@@ -12,32 +12,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.SynchronousQueue;
 
 import de.maboware.clipexchange.model.Request;
 import de.maboware.clipexchange.model.Response;
 
-public class ClipEchchangeServer {
+public class ClipExchangeServer {
 
 	String clipBoard = "empty";
 	Map<String, Object> payload = new HashMap<>();
-
-	/**
-	 * No more static - Server instance is start from client.
-	 * @param args
-	 */
-	public void main(String[] args) {
-		int p = 1512;
-		if (args != null && args.length > 0) {
-			try {
-				p = Integer.valueOf(args[0]);
-			} catch (NumberFormatException ex) {
-				System.err.println("Usage: java -jar ClipEchange.jar [portNumber] \nDefault Port is 1512");
-			}
-		}
-
-		new ClipEchchangeServer().startServer(p);
-	}
 
 	public void startServer(int port) {
 		final ExecutorService clientProcessingPool = Executors.newFixedThreadPool(25);
